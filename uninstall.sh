@@ -37,12 +37,12 @@ if session_start:
     # Filter out entries where any hook command contains CLAUDE_TS_
     filtered = []
     for entry in session_start:
-        dominated = False
+        is_ours = False
         for hook in entry.get("hooks", []):
             if "CLAUDE_TS_" in hook.get("command", ""):
-                dominated = True
+                is_ours = True
                 break
-        if not dominated:
+        if not is_ours:
             filtered.append(entry)
 
     if filtered:

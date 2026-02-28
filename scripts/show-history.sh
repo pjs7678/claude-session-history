@@ -42,16 +42,24 @@ if [ -z "$history" ]; then
 fi
 
 # --- Show in fzf popup ---------------------------------------------------
-selected=$(echo "$history" | fzf-tmux -p 80%,50% \
-  --no-sort \
-  --tac \
-  --prompt "Session history > " \
-  --header "Enter: copy | Esc: cancel")
+if command -v fzf-tmux &>/dev/null; then
+  selected=$(echo "$history" | fzf-tmux -p 80%,50% \
+    --no-sort \
+    --tac \
+    --prompt "Session history > " \
+    --header "Enter: copy | Esc: cancel")
+else
+  selected=$(echo "$history" | fzf \
+    --no-sort \
+    --tac \
+    --prompt "Session history > " \
+    --header "Enter: copy | Esc: cancel")
+fi
 
 if [ -n "$selected" ]; then
   # Strip timestamp prefix [YYYY-MM-DD HH:MM] and restore newlines
   cleaned=$(echo "$selected" | sed 's/^\[[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\} [0-9]\{2\}:[0-9]\{2\}\] //')
   # Restore ↵ markers back to actual newlines
   restored=$(echo "$cleaned" | sed 's/ ↵ /\n/g')
-  echo "$restored" | copy_to_clipboard
+  printf '%s' "$restored" | copy_to_clipboard
 fi
