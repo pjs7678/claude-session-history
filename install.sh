@@ -54,12 +54,16 @@ echo -e "${GREEN}✓ Scripts installed to ~/.claude/scripts/${NC}"
 # ---------------------------------------------------------------------------
 SETTINGS_FILE="$HOME/.claude/settings.json"
 
-HOOK_ADDED=$(python3 - "$SETTINGS_FILE" <<'PYEOF'
+RESULT_FILE=$(mktemp)
+trap 'rm -f "$RESULT_FILE"' EXIT
+
+python3 - "$SETTINGS_FILE" "$RESULT_FILE" <<'PYEOF'
 import json
 import os
 import sys
 
 settings_path = sys.argv[1]
+result_file = sys.argv[2]
 
 # Read existing settings or start fresh
 if os.path.isfile(settings_path):
@@ -83,29 +87,26 @@ for entry in session_start:
         break
 
 if already_exists:
-    print("skip")
+    with open(result_file, "w") as f:
+        f.write("skip")
 else:
     # Backup existing settings.json
     if os.path.isfile(settings_path):
-        with open(settings_path, "r") as f:
-            backup_content = f.read()
-        with open(settings_path + ".bak", "w") as f:
-            f.write(backup_content)
+        import shutil
+        shutil.copy2(settings_path, settings_path + ".bak")
 
     # Append our hook entry
+    hook_command = (
+        '[ -n "$TMUX" ] && '
+        "PANE_ID=$(tmux display-message -p '#{pane_id}' | tr -d '%') && "
+        'tmux setenv "CLAUDE_TS_${PANE_ID}" '
+        '"$(python3 -c \'import time;print(int(time.time()*1000))\')" && '
+        'tmux setenv "CLAUDE_DIR_${PANE_ID}" "$(pwd)" '
+        '|| true'
+    )
     hook_entry = {
         "matcher": "",
-        "hooks": [{
-            "type": "command",
-            "command": (
-                '[ -n "$TMUX" ] && '
-                "PANE_ID=$(tmux display-message -p '#{pane_id}' | tr -d '%') && "
-                'tmux setenv "CLAUDE_TS_${PANE_ID}" '
-                '"$(python3 -c \'import time;print(int(time.time()*1000))\')" && '
-                'tmux setenv "CLAUDE_DIR_${PANE_ID}" "$(pwd)" '
-                '|| true'
-            )
-        }]
+        "hooks": [{"type": "command", "command": hook_command}]
     }
     session_start.append(hook_entry)
 
@@ -113,9 +114,11 @@ else:
         json.dump(settings, f, indent=2)
         f.write("\n")
 
-    print("added")
+    with open(result_file, "w") as f:
+        f.write("added")
 PYEOF
-)
+
+HOOK_ADDED=$(cat "$RESULT_FILE")
 
 if [ "$HOOK_ADDED" = "added" ]; then
   echo -e "${GREEN}✓ SessionStart hook added to ~/.claude/settings.json${NC}"
