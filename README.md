@@ -42,7 +42,7 @@ See: [anthropics/claude-code#15631](https://github.com/anthropics/claude-code/is
 Clone and run the install script:
 
 ```sh
-git clone https://github.com/jongsu/claude-session-history.git
+git clone https://github.com/pjs7678/claude-session-history.git
 cd claude-session-history
 ./install.sh
 ```
